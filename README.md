@@ -10,7 +10,7 @@
 - **نفس تصميم «المحاسب الذكي»**: نفس الألوان والخطوط، قائمة جانبية على الكمبيوتر وسفلية على الهاتف، الجداول بتصير بطاقات على الهاتف، معاينة طباعة A4 مع حفظ PDF، ووضع فاتح/داكن.
 - **تطبيق على الهاتف**: بينزّل على آيفون وأندرويد والكمبيوتر كتطبيق بأيقونة باسم الاستوديو (الإعدادات ← تثبيت على الهاتف). التحديثات بتوصل لحالها.
 
-> التثبيت على الهاتف يحتاج رابط **https** (السكربت `new-studio.sh` بيعمل الشهادة تلقائياً).
+> التثبيت على الهاتف يحتاج رابط **https** (الرابط اللي بيعمله `install.sh` فيه https تلقائياً).
 
 ## الصلاحيات
 | | موظف | مدير |
@@ -23,41 +23,43 @@
 
 ## التشغيل على السيرفر (مرة واحدة)
 
-1. **الدومين**: في لوحة الأنظمة الموثوقة أضف سجل `A` باسم `solo` يشير إلى `13.140.207.88`.
+البرنامج **مستقل**: له رابطه الخاص، وبيشتغل بـ Docker جنب أي مواقع ثانية على نفس السيرفر بدون ما يلمسها.
 
-2. **السحب من GitHub** (نفس طريقة مشاريعك الثانية):
+1. **مفتاح السحب من GitHub** (المستودع خاص):
    ```bash
-   cd /opt
-   git clone https://github.com/alshaheedlib-beep/studio-lite.git
-   cd studio-lite
+   ssh-keygen -t ed25519 -N "" -q -f /root/.ssh/studio_lite && cat /root/.ssh/studio_lite.pub
    ```
+   انسخ السطر اللي بيطلع، وحطه في GitHub: المستودع ← Settings ← Deploy keys ← Add deploy key.
 
-3. **إنشاء نسخة استوديو Solo**:
+2. **سحب البرنامج وتركيب نسخة Solo**:
    ```bash
-   sudo bash deploy/new-studio.sh solo 3101 solo.alshaheed.ps "Solo" "محمد:mohammad,احمد:ahmad,محمود:mahmoud"
+   GIT_SSH_COMMAND="ssh -i /root/.ssh/studio_lite -o StrictHostKeyChecking=accept-new" git clone git@github.com:<حساب-github>/studio-lite.git /opt/studio-lite
+   bash /opt/studio-lite/deploy/install.sh solo "Solo" "محمد:mohammad,احمد:ahmad,محمود:mahmoud"
    ```
-   السكربت يطبع كلمة مرور المدير — احفظها.
+   السكربت بيطبع الرابط وكلمة سر المدير. الرابط بيكون مجاني وجاهز بـ https، مثل:
+   `https://solo.13-140-207-88.sslip.io` — بدون ما تحتاج دومين.
 
-4. **التحديث التلقائي من GitHub** (كل دقيقة يفحص ويعيد تشغيل كل النسخ):
-   ```bash
-   (crontab -l 2>/dev/null; echo "* * * * * /opt/studio-lite/deploy/auto-pull.sh >> /var/log/studio-lite-pull.log 2>&1") | crontab -
-   ```
-
-بعدها أي تعديل ترفعه على GitHub يوصل للسيرفر لحاله خلال دقيقة.
+بعدها أي تعديل بترفعه على GitHub بيوصل لكل النسخ خلال دقيقة لحاله.
 
 ## بيع نسخة لاستوديو جديد
 ```bash
-cd /opt/studio-lite
-sudo bash deploy/new-studio.sh nour 3102 nour.alshaheed.ps "استوديو نور"
+bash /opt/studio-lite/deploy/install.sh nour "استوديو نور"
 ```
-(أضف سجل DNS للرابط الجديد أولاً). النسخة الجديدة تبدأ فاضية: بدون عرسان وبدون موظفين، والخدمات أمثلة يعدّلها صاحب الاستوديو.
+كل نسخة لها بياناتها ورابطها ومنفذها لحالها، وبتبدأ فاضية.
+
+## دومين خاص للبرنامج (اختياري، لاحقاً)
+لما تشتري دومين للبرنامج (مثلاً `studiolite.com`)، وجّه سجل `*` (أو `solo`) لـ IP السيرفر، وبعدين:
+```bash
+bash /opt/studio-lite/deploy/install.sh solo "Solo" "" solo.studiolite.com
+```
+البيانات وكلمات السر بتضل زي ما هي.
 
 ## أوامر مفيدة
 ```bash
-pm2 ls                          # كل النسخ الشغالة
-pm2 logs studio-solo            # سجل نسخة
-pm2 restart studio-solo
-ls /var/lib/studio-lite/solo/backups   # النسخ الاحتياطية اليومية
+docker ps | grep studio-                     # كل النسخ الشغالة
+docker logs studio-solo                      # سجل نسخة
+ls /opt/studio-lite-data/solo/backups        # النسخ الاحتياطية اليومية
+tail /var/log/studio-lite-deploy.log         # سجل التحديثات من GitHub
 ```
 
 ## ملاحظات محاسبية
