@@ -9,6 +9,7 @@
 # إذا ما حددت رابط: بياخد رابط مجاني تلقائي مثل  https://solo.1-2-3-4.sslip.io  (https شغال فوراً)
 # ولما تشتري دومين للبرنامج، أعد التشغيل وحط الدومين كآخر وسيط.
 set -euo pipefail
+trap 'echo "❌ توقف التركيب عند السطر $LINENO — ابعت هالرسالة"' ERR
 SLUG="${1:?اكتب اسم مختصر بالإنجليزي، مثل: solo}"
 NAME="${2:-$SLUG}"
 STAFF="${3:-}"
@@ -30,8 +31,9 @@ if [ -f "$CONF" ]; then
 else
   FIRST=1
   # أول منفذ فاضي من 8100
-  PORT=8100; while ss -ltn | grep -q ":$PORT " || grep -qs "^PORT=$PORT$" "$BASE"/instances/*.env; do PORT=$((PORT+1)); done
-  ADMIN_PASSWORD="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 10)"
+  PORT=8100; USED="$(ss -ltn 2>/dev/null || true) $(cat "$BASE"/instances/*.env 2>/dev/null || true)"
+  while grep -q -e ":$PORT " -e "^PORT=$PORT$" <<<"$USED"; do PORT=$((PORT+1)); done
+  ADMIN_PASSWORD="$(od -An -tx1 -N5 /dev/urandom | tr -d ' \n')"
   [ -n "$DOMAIN" ] || DOMAIN="$SLUG.${IP//./-}.sslip.io"
 fi
 cat > "$CONF" <<EOF
@@ -46,11 +48,11 @@ chmod 600 "$CONF"
 
 echo ">> بناء البرنامج وتشغيله…"
 bash "$SRC/deploy/run.sh" "$SLUG"
-if command -v ufw >/dev/null && ufw status | grep -q "Status: active"; then ufw allow "$PORT"/tcp >/dev/null; fi
+if command -v ufw >/dev/null && ufw status | grep "Status: active" >/dev/null; then ufw allow "$PORT"/tcp >/dev/null; fi
 
 # الرابط عبر Caddy (https تلقائي)
 DOMAIN_MSG="لم يُعثر على Caddy — البرنامج متاح على http://$IP:$PORT فقط"
-if docker ps --format '{{.Names}}' | grep -qx caddy; then
+if docker ps --format '{{.Names}}' | grep -x caddy >/dev/null; then
   CF=$(docker inspect caddy --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}')
   if [ -n "$CF" ]; then
     # نشيل أي بلوك قديم لهذه النسخة ونكتبه من جديد
